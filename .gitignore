@@ -1,0 +1,9 @@
+# Alat verifikasi lokal: script + artefak (log, PDF, screenshot)
+.verify
+
+# Versi Python/Streamlit lama dan berkas pendukungnya
+app_arg.py
+requirements.txt
+
+# Contoh keluaran PDF (hasil generate, bukan sumber)
+contoh_Laporan_Tipping_Bucket.pdf

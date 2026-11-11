@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aplikasi Perhitungan Tip Tipping Bucket</title>
+<style>
+  :root{
+    --bg:#f5f7fa;
+    --card:#ffffff;
+    --border:#d9e0e8;
+    --text:#1f2933;
+    --muted:#6b7785;
+    --accent:#0d6efd;
+    --accent-soft:#e8f1ff;
+    --field:#f7f9fc;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:28px 16px 48px;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:15px; line-height:1.45;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:1.65rem;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:.9rem;margin-bottom:22px}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 2px rgba(16,24,40,.04);
+  }
+  h2{font-size:1.05rem;margin:0 0 14px;font-weight:650}
+  h3{font-size:.95rem;margin:16px 0 10px;font-weight:600;color:#3d4c5c}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px 20px}
+  .grid-meas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 18px}
+  label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:5px;font-weight:500}
+  input,select{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:6px;
+    background:#fff;color:var(--text);font-size:.95rem;font-family:inherit;font-variant-numeric:tabular-nums;
+  }
+  input:focus,select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  input[readonly]{
+    background:var(--field);color:#334;border-style:solid;cursor:default;font-weight:600;
+  }
+  input[readonly]:focus{outline:none;border-color:var(--border)}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.9rem;font-variant-numeric:tabular-nums}
+  th,td{border:1px solid var(--border);padding:8px 10px;text-align:right}
+  th{background:var(--accent-soft);font-weight:600;text-align:left;color:#243244}
+  tbody tr:nth-child(even){background:#fbfcfe}
+  td:first-child{text-align:left;color:var(--muted)}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  button{
+    font:inherit;font-weight:600;padding:10px 20px;border-radius:6px;cursor:pointer;border:1px solid transparent;
+  }
+  .primary{background:var(--accent);color:#fff}
+  .primary:hover{background:#0b5ed7}
+  .ghost{background:#fff;border-color:var(--border);color:#41505f}
+  .ghost:hover{background:#f1f4f8}
+  .hint{color:var(--muted);font-size:.8rem;margin-top:10px}
+  footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:26px}
+  hr{border:0;border-top:1px solid var(--border);margin:20px 0 14px}
+
+  /* ---- laporan cetak ---- */
+  #report{display:none}
+  #report h1{font-size:1.35rem;text-align:center;margin:0 0 14px}
+  #report h3{margin:16px 0 6px;font-size:.95rem}
+  #report .kv{margin:2px 0;font-size:.9rem}
+  #report table{margin-top:8px}
+  #report th,#report td{padding:6px 8px}
+  @page{size:A4;margin:15mm}
+  @media print{
+    body{background:#fff;padding:0;font-size:12px}
+    .no-print{display:none !important}
+    #report{display:block !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap no-print">
+  <h1>Aplikasi Perhitungan Tip Tipping Bucket</h1>
+  <div class="sub">Kalibrasi tipping bucket &mdash; resolusi, volume FCD, diameter corong, dan pembacaan alat.</div>
+
+  <div class="card">
+    <h2>Parameter</h2>
+    <div class="row">
+      <div>
+        <label for="resolusi">Resolusi (mm/tip)</label>
+        <select id="resolusi">
+          <option value="0.1">0.1 mm/tip</option>
+          <option value="0.2" selected>0.2 mm/tip</option>
+          <option value="0.5">0.5 mm/tip</option>
+        </select>
+      </div>
+      <div>
+        <label for="volFcd">Volume FCD (mm³)</label>
+        <input id="volFcd" type="text" inputmode="numeric" value="250000">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tabel Diameter dan Koreksi</h2>
+    <h3>Masukkan hasil pengukuran diameter corong:</h3>
+    <div class="grid-meas" id="diamFields"></div>
+    <table>
+      <thead>
+        <tr><th>Pembacaan Diameter (mm)</th><th>Koreksi (mm)</th><th>Diameter Terkoreksi (mm)</th></tr>
+      </thead>
+      <tbody id="diamBody"></tbody>
+    </table>
+    <hr>
+    <div class="row">
+      <div>
+        <label for="rata2">Rata-rata Diameter (mm)</label>
+        <input id="rata2" readonly>
+      </div>
+      <div>
+        <label for="luas">Luas Permukaan Corong (mm²)</label>
+        <input id="luas" readonly>
+      </div>
+      <div>
+        <label for="teori">Teori (tip)</label>
+        <input id="teori" readonly>
+      </div>
+      <div>
+        <label for="rentang">Rentang Teori ±5% (tip)</label>
+        <input id="rentang" readonly>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Pembacaan Alat yang Dikalibrasi (tip)</h2>
+    <div class="grid-meas" id="alatFields"></div>
+    <table>
+      <thead><tr><th>Alat yang dikalibrasi (tip)</th></tr></thead>
+      <tbody id="alatBody"></tbody>
+    </table>
+    <hr>
+    <div class="row">
+      <div>
+        <label for="aktual">Aktual (tip)</label>
+        <input id="aktual" readonly>
+      </div>
+      <div>
+        <label for="error">Error (%)</label>
+        <input id="error" readonly>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="btnPdf">Generate &amp; Download PDF</button>
+    <button class="ghost" id="btnReset">Reset</button>
+  </div>
+  <div class="hint">Tombol PDF membuka dialog cetak browser &mdash; pilih <em>Save as PDF</em> / <em>Simpan sebagai PDF</em>, tujuan <em>Laporan_Tipping_Bucket.pdf</em>.</div>
+
+  <hr>
+  <footer>Aplikasi Perhitungan Tip Tipping Bucket | © 2025</footer>
+</div>
+
+<div id="report"></div>
+
+<script>
+/* ================= CORE-START (logika perhitungan, port 1:1 dari app_arg.py) ================= */
+var PI_APPROX = 3.14;      // app_arg.py memakai 3.14, bukan Math.PI
+var N_READING  = 5;        // jumlah pembacaan diameter / alat
+
+/**
+ * Tabel koreksi dari lembar kalibrasi: [Set Point (mm), Koreksi (mm)].
+ * Titik-titik ini dipakai sebagai knot interpolasi linear.
+ */
+var TABEL_KOREKSI = [
+  [19.99, 0.01], [39.99, 0.01], [49.99, 0.01], [69.99, 0.01], [89.99, 0.01], [99.99, 0.01],
+  [119.99, 0.01], [139.99, 0.01], [149.99, 0.01], [169.99, 0.01], [189.99, 0.01],
+  [199.99, 0.01], [249.99, 0.02], [299.99, 0.02]
+];
+
+/**
+ * Perlakuan di luar rentang tabel (d < 19.99 atau d > 299.99):
+ *   false -> pakai nilai titik terdekat (0.01 di bawah, 0.02 di atas)   [default]
+ *   true  -> 0.00
+ */
+var KOREKSI_LUAR_TABEL_NOL = false;
+
+/**
+ * Koreksi diameter.
+ *  - tepat pada Set Point  -> nilai tabel apa adanya (0.01 / 0.02)
+ *  - di antara Set Point   -> interpolasi linear antara dua titik yang mengapit
+ *  - di luar rentang tabel -> lihat KOREKSI_LUAR_TABEL_NOL
+ * Contoh: d = 225.00 -> 0.01 + (0.02-0.01)*(225-199.99)/(249.99-199.99) = 0.015
+ */
+function hitungKoreksi(d){
+  d = Number(d);
+  if (!isFinite(d) || d <= 0) return 0.00;
+  var t = TABEL_KOREKSI, n = t.length;
+  if (d < t[0][0])      return KOREKSI_LUAR_TABEL_NOL ? 0.00 : t[0][1];
+  if (d > t[n - 1][0])  return KOREKSI_LUAR_TABEL_NOL ? 0.00 : t[n - 1][1];
+  for (var i = 0; i < n - 1; i++){
+    var x0 = t[i][0], y0 = t[i][1], x1 = t[i + 1][0], y1 = t[i + 1][1];
+    if (d >= x0 && d <= x1){
+      if (d === x0) return y0;          // titik tabel: jangan diinterpolasi
+      if (d === x1) return y1;
+      return y0 + (y1 - y0) * (d - x0) / (x1 - x0);
+    }
+  }
+  return t[n - 1][1];
+}
+
+function rataRata(arr){
+  if (!arr.length) return 0.0;
+  var s = 0;
+  for (var i = 0; i < arr.length; i++) s += arr[i];
+  return s / arr.length;
+}
+
+/**
+ * state = { resolusi:Number, volFcd:Number, diameters:[5], alat:[5] }
+ * Nilai kosong / <=0 diperlakukan sebagai 0 seperti min_value+default Streamlit.
+ */
+function compute(state){
+  var res  = Number(state.resolusi) || 0;
+  var vol  = Number(state.volFcd)   || 0;
+  var d    = (state.diameters || []).map(function(v){ return Number(v) || 0; });
+  var a    = (state.alat      || []).map(function(v){ return Number(v) || 0; });
+
+  var koreksiList   = d.map(hitungKoreksi);
+  var terkoreksiList = d.map(function(v, i){ return v + koreksiList[i]; });
+
+  var validTerkoreksi = terkoreksiList.filter(function(v){ return v > 0; });
+  var rata2 = validTerkoreksi.length ? rataRata(validTerkoreksi) : 0.0;
+
+  var luas = PI_APPROX * Math.pow(rata2 / 2, 2);
+
+  var teori = (luas > 0 && res > 0) ? (vol / (luas * res)) : 0.0;
+
+  var lower = teori * 0.95;
+  var upper = teori * 1.05;
+
+  var validAlat = a.filter(function(v){ return v > 0; });
+  var aktual = validAlat.length ? rataRata(validAlat) : 0.0;
+
+  var error = (teori !== 0) ? ((aktual - teori) / teori) * 100 : 0.0;
+
+  return {
+    resolusi: res, volFcd: vol,
+    diameters: d, alat: a,
+    koreksiList: koreksiList,
+    terkoreksiList: terkoreksiList,
+    rata2: rata2, luas: luas, teori: teori, lower: lower, upper: upper,
+    aktual: aktual, error: error
+  };
+}
+/* ================= CORE-END ================= */
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { compute: compute, hitungKoreksi: hitungKoreksi };
+
+/* ---------------- UI ---------------- */
+(function(){
+  if (typeof document === 'undefined') return;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  /**
+   * Format N desimal yang identik dengan f"{v:.Nd}f" Python:
+   * pembulatan memakai nilai biner eksak, dan pada kasus tepat .xx5 dibulatkan
+   * ke genap (round-half-even), bukan setengah ke atas seperti toFixed().
+   * Contoh: 59365.625 -> "59365.62" (Python & fungsi ini), toFixed -> "59365.63".
+   */
+  function roundN(v, nd){
+    var n = Number(v);
+    if (!isFinite(n)) return String(n);
+    var neg = n < 0, a = Math.abs(n);
+    if (a >= 1e21) return (neg ? '-' : '') + a.toFixed(nd);   // di luar jangkauan toFixed(100)
+    var exact = a.toFixed(100);                               // ekspansi desimal eksak
+    var dot = exact.indexOf('.');
+    var keep = exact.slice(dot + 1, dot + 1 + nd);
+    var rest = exact.slice(dot + 1 + nd);
+    var up = false;
+    var first = rest.charCodeAt(0) - 48;
+    if (first > 5) up = true;
+    else if (first === 5) up = /[1-9]/.test(rest.slice(1)) || ((keep.charCodeAt(nd - 1) - 48) % 2 === 1);
+    var digits = exact.slice(0, dot) + keep;
+    if (up){
+      var arr = digits.split(''), i = arr.length - 1;
+      while (i >= 0){
+        if (arr[i] === '9'){ arr[i] = '0'; i--; } else { arr[i] = String(+arr[i] + 1); break; }
+      }
+      if (i < 0) arr.unshift('1');
+      digits = arr.join('');
+    }
+    var cut = digits.length - nd;
+    return (neg ? '-' : '') + digits.slice(0, cut).replace(/^0+(?=\d)/, '') + '.' + digits.slice(cut);
+  }
+  var fmt = function(v){ return roundN(v, 2); };
+
+  /**
+   * Format kolom Koreksi: hasil interpolasi bisa pecahan (0.015 / 0.012002).
+   * Tampilkan sampai 4 desimal, buang nol di belakang, minimal 2 desimal --
+   * sehingga titik tabel tetap tampil "0.01" / "0.02" seperti lembar kalibrasi.
+   */
+  var fmtK = function(v){
+    var s = roundN(v, 4);
+    if (s.indexOf('.') === -1) s += '.';
+    s = s.replace(/0+$/, '');
+    if (s.charAt(s.length - 1) === '.') s += '00';
+    else if (s.length - s.indexOf('.') - 1 < 2) s += '0';
+    return s;
+  };
+
+  /**
+   * Parse angka tahan-locale: menerima "200.5", "200,5" (koma = desimal),
+   * dan "1.234,5" / "1,234.5" (pemisah ribuan + desimal).
+   * Kosong / bukan angka / <= 0 -> 0 (padanan min_value + default Streamlit).
+   */
+  function parseNumber(str){
+    var s = String(str == null ? '' : str).trim().replace(/\s|\u00a0/g, '');
+    if (s === '') return 0;
+    var lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if (lastComma > -1 && lastDot > -1){
+      if (lastComma > lastDot){                       // 1.234,5 -> koma desimal
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {                                        // 1,234.5 -> titik desimal
+        s = s.replace(/,/g, '');
+      }
+    } else if (lastComma > -1){
+      s = s.replace(',', '.');                        // 200,5 -> 200.5
+    }
+    var n = parseFloat(s);
+    return (isFinite(n) && n > 0) ? n : 0;
+  }
+
+  // buang karakter yang tidak mungkin jadi angka saat mengetik
+  function sanitize(el){
+    var cleaned = el.value.replace(/[^0-9.,\-]/g, '');
+    if (cleaned !== el.value) el.value = cleaned;
+  }
+
+  function val(el){ sanitize(el); return parseNumber(el.value); }
+
+  // --- bangun field input 5 diameter & 5 alat ---
+  var dFields = $('diamFields'), aFields = $('alatFields');
+  for (var i = 0; i < N_READING; i++){
+    var dw = document.createElement('div');
+    dw.innerHTML = '<label for="diam'+i+'">Pembacaan Diameter ke-'+(i+1)+' (mm)</label>' +
+                   '<input id="diam'+i+'" type="text" inputmode="decimal" placeholder="0.00">';
+    dFields.appendChild(dw);
+
+    var aw = document.createElement('div');
+    aw.innerHTML = '<label for="alat'+i+'">Pembacaan ke-'+(i+1)+' (tip)</label>' +
+                   '<input id="alat'+i+'" type="text" inputmode="decimal" placeholder="0.00">';
+    aFields.appendChild(aw);
+  }
+
+  function readState(){
+    var diameters = [], alat = [];
+    for (var k = 0; k < N_READING; k++){
+      diameters.push(val($('diam'+k)));
+      alat.push(val($('alat'+k)));
+    }
+    return {
+      resolusi: parseFloat($('resolusi').value),
+      volFcd: val($('volFcd')),
+      diameters: diameters,
+      alat: alat
+    };
+  }
+
+  var last = null;
+
+  function render(){
+    var st = readState();
+    var r  = compute(st);
+    last = r;
+
+    // tabel diameter (kosong bila pembacaan 0, seperti versi Streamlit)
+    var rows = '';
+    for (var i = 0; i < N_READING; i++){
+      var has = st.diameters[i] > 0;
+      rows += '<tr>'
+            + '<td>' + (has ? fmt(st.diameters[i])   : '') + '</td>'
+            + '<td>' + (has ? fmtK(r.koreksiList[i]) : '') + '</td>'
+            + '<td>' + (has ? fmt(r.terkoreksiList[i]) : '') + '</td></tr>';
+    }
+    $('diamBody').innerHTML = rows;
+
+    // tabel alat
+    var arows = '';
+    for (var j = 0; j < N_READING; j++){
+      var hasA = st.alat[j] > 0;
+      arows += '<tr><td>' + (hasA ? fmt(st.alat[j]) : '') + '</td></tr>';
+    }
+    $('alatBody').innerHTML = arows;
+
+    // hasil
+    $('rata2').value  = fmt(r.rata2);
+    $('luas').value   = fmt(r.luas);
+    $('teori').value  = fmt(r.teori);
+    $('rentang').value = fmt(r.lower) + ' s/d ' + fmt(r.upper);
+    $('aktual').value = fmt(r.aktual);
+    $('error').value  = fmt(r.error);
+  }
+
+  // --- laporan cetak (padanan generate_pdf) ---
+  function buildReport(){
+    var r = last || compute(readState());
+    var esc = function(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
+    var h = '';
+    h += '<h1>Laporan Perhitungan Tip Tipping Bucket</h1>';
+    h += '<div class="kv"><b>Resolusi (mm/tip):</b> ' + r.resolusi + '</div>';
+    h += '<div class="kv"><b>Volume FCD (mm³):</b> ' + r.volFcd + '</div>';
+
+    h += '<h3>Tabel Diameter</h3>';
+    h += '<table><thead><tr><th>Diameter (mm)</th><th>Koreksi (mm)</th><th>Diameter Terkoreksi (mm)</th></tr></thead><tbody>';
+    for (var i = 0; i < N_READING; i++){
+      h += '<tr><td>' + fmt(r.diameters[i]) + '</td><td>' + fmtK(r.koreksiList[i]) + '</td><td>' + fmt(r.terkoreksiList[i]) + '</td></tr>';
+    }
+    h += '</tbody></table>';
+
+    h += '<div class="kv">Rata-rata Diameter (mm): <b>' + fmt(r.rata2) + '</b></div>';
+    h += '<div class="kv">Luas Permukaan Corong (mm²): <b>' + fmt(r.luas) + '</b></div>';
+    h += '<div class="kv">Teori (tip): <b>' + fmt(r.teori) + '</b></div>';
+    h += '<div class="kv">Rentang Teori ±5% (tip): <b>' + fmt(r.lower) + ' s/d ' + fmt(r.upper) + '</b></div>';
+
+    h += '<h3>Tabel Pembacaan Alat yang Dikalibrasi</h3>';
+    h += '<table><thead><tr><th>Pembacaan (tip)</th></tr></thead><tbody>';
+    for (var j = 0; j < N_READING; j++){
+      h += '<tr><td>' + fmt(r.alat[j]) + '</td></tr>';
+    }
+    h += '</tbody></table>';
+
+    h += '<div class="kv" style="margin-top:10px">Aktual (tip): <b>' + fmt(r.aktual) + '</b></div>';
+    h += '<div class="kv">Error (%): <b>' + fmt(r.error) + '</b></div>';
+    $('report').innerHTML = h;
+  }
+
+  // --- events: hitung ulang live seperti rerun Streamlit ---
+  document.addEventListener('input', function(e){
+    if (e.target.matches('input,select')) render();
+  });
+  document.addEventListener('change', function(e){
+    if (e.target.matches('input,select')) render();
+  });
+
+  $('btnPdf').addEventListener('click', function(){
+    render();
+    buildReport();
+    window.print();
+  });
+
+  $('btnReset').addEventListener('click', function(){
+    for (var k = 0; k < N_READING; k++){ $('diam'+k).value = ''; $('alat'+k).value = ''; }
+    $('resolusi').value = '0.2';
+    $('volFcd').value = 250000;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
